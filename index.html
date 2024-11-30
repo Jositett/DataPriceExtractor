@@ -140,7 +140,7 @@
 
         <button id="processButton" onclick="processHTML()">Process HTML</button>
         <button id="resetButton" onclick="resetForm()">Reset</button>
-        <button id="exportButton" onclick="exportAsImage()" style="display: none;">Export as Image</button>
+        <button id="exportButton" onclick="exportAsImage()">Export as Image</button>
         <div id="outputContainer"></div>
     </div>
 <script>
@@ -327,6 +327,19 @@
 
         console.log("Output displayed");
     }
+
+    function exportAsImage() {
+        const outputContainer = document.getElementById('outputContainer');
+        html2canvas(outputContainer).then(canvas => {
+            const link = document.createElement('a');
+            link.download = 'output.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        }).catch(error => {
+            console.error('Error exporting as image:', error);
+        });
+    }
+
 
     document.getElementById('priceIncrease').addEventListener('input', updatePrices);
 
