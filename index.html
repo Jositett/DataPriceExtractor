@@ -143,9 +143,16 @@
         <button id="exportButton" onclick="exportAsImage()" style="display: none;">Export as Image</button>
         <div id="outputContainer"></div>
     </div>
-
-    <script>
+<script>
     const data = JSON.parse(localStorage.getItem('data')) || {
+        "MTN": [],
+        "AT Premium": [],
+        "AT Bigtime": [],
+        "AT Talktime": [],
+        "Telecel": []
+    };
+
+    const originalData = JSON.parse(localStorage.getItem('originalData')) || {
         "MTN": [],
         "AT Premium": [],
         "AT Bigtime": [],
@@ -180,6 +187,7 @@
         const doc = parser.parseFromString(htmlInput.value.trim(), 'text/html');
         const planContainers = doc.querySelectorAll('[id^="ContentPlaceHolder1_MyBundlesRepeater_MyPlanContainer_"]');
         const bundles = [];
+        const originalBundles = [];
 
         planContainers.forEach(container => {
             const dataUnitElements = container.querySelectorAll('.PlanName');
@@ -193,28 +201,25 @@
             const status = statusElement ? statusElement.textContent.trim() : '';
 
             if (includeOutOfStock || status.toLowerCase() !== 'out of stock') {
-                let adjustedPriceIncrease = priceIncrease;
-                const dataValue = parseFloat(dataAmount);
-                const isGB = dataUnit.toUpperCase() === 'GB';
-                const isTB = dataUnit.toUpperCase() === 'TB';
-
-                if (packageType !== 'AT Talktime' && ((isGB && dataValue > 30) || isTB)) {
-                    adjustedPriceIncrease = priceIncrease - (priceIncrease * 0.05);
-                }
-
-                const adjustedPrice = roundPrice(price * (1 + adjustedPriceIncrease / 100));
                 const fullDataUnit = packageType === 'AT Talktime' ? `${dataAmount} mins` : `${dataAmount}${dataUnit}`;
+                originalBundles.push({ dataUnit: fullDataUnit, price: price, status });
+
+                const adjustedPrice = roundPrice(price * (1 + priceIncrease / 100));
                 bundles.push({ dataUnit: fullDataUnit, price: `GH¢ ${adjustedPrice.toFixed(2)}`, status });
             }
         });
 
+        originalData[packageType] = originalBundles;
         data[packageType] = bundles;
+
         disableOption(packageType);
 
         localStorage.setItem('data', JSON.stringify(data));
+        localStorage.setItem('originalData', JSON.stringify(originalData));
         localStorage.setItem('htmlData', JSON.stringify(htmlData));
 
         console.log("Processed data:", data);
+        console.log("Stored original data:", originalData);
         console.log("Stored HTML data:", htmlData);
 
         htmlInput.value = '';
@@ -238,10 +243,10 @@
     function updatePrices() {
         const priceIncrease = parseFloat(document.getElementById('priceIncrease').value) || 0;
 
-        for (const packageType in data) {
-            data[packageType] = data[packageType].map(bundle => {
-                const originalPrice = parseFloat(bundle.price.replace('GH¢', '').trim());
-                const adjustedPrice = roundPrice(originalPrice / (1 + lastPriceIncrease / 100) * (1 + priceIncrease / 100));
+        for (const packageType in originalData) {
+            const originalBundles = originalData[packageType];
+            data[packageType] = originalBundles.map(bundle => {
+                const adjustedPrice = roundPrice(bundle.price * (1 + priceIncrease / 100));
                 return {
                     ...bundle,
                     price: `GH¢ ${adjustedPrice.toFixed(2)}`
