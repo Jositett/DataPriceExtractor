@@ -274,7 +274,7 @@
         const accountName = document.getElementById('accountName').value;
         const accountNumber = document.getElementById('accountNumber').value;
 
-        const announcement = `
+        const announcement = 
             <div class="announcement">
                 📣 <strong>Today's Prices - ${formattedDate}</strong> 📣<br>
                 Place your order now via WhatsApp only (no calls): ${whatsappNumber}<br>
@@ -284,9 +284,16 @@
                 - Desired Package<br>
                 - Momo Payment (Account Name: ${accountName}, Account Number: ${accountNumber})<br>
                 <br>
+                <strong>Processing time:</strong> 10 minutes to 7 hours (depending&nbsp;on&nbsp;network)<br>
+                <br>
+                <strong>Note:</strong><br>
+                - Sims with debts may not be able to enjoy our services<br>
+                - No Landline&nbsp;or&nbsp;Turbonet&nbsp;allowed<br>
+                - Working Hours: 7am - 7pm (Weekdays, may vary)<br>
+                <br>
                 Order now and get your data package delivered quickly!
             </div>
-        `;
+        ;
 
         const visibleHeaders = headers.filter(header => document.getElementById(`show${header.replace(/\s+/g, '')}`).checked);
         const columnWidth = 100 / visibleHeaders.length;
@@ -330,22 +337,50 @@
 
     function exportAsImage() {
         const outputContainer = document.getElementById('outputContainer');
-        html2canvas(outputContainer).then(canvas => {
-            const link = document.createElement('a');
-            link.download = 'output.png';
-            link.href = canvas.toDataURL();
-            link.click();
-        }).catch(error => {
-            console.error('Error exporting as image:', error);
+        html2canvas(outputContainer, { scale: 2, scrollX: 0, scrollY: 0, windowWidth: document.documentElement.scrollWidth, windowHeight: document.documentElement.scrollHeight }).then(canvas => {
+            canvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+
+                const now = new Date();
+                const formattedDate = now.toISOString().replace(/:/g, '-').split('.')[0];
+
+                link.download = data_output_${formattedDate}.png;
+                link.href = url;
+                link.click();
+                URL.revokeObjectURL(url);
+            });
         });
     }
 
+    function updateFontSize() {
+        const fontSize = document.getElementById('fontSizeSlider').value;
+        document.getElementById('fontSizeValue').textContent = ${fontSize}px;
+        document.getElementById('outputContainer').style.fontSize = ${fontSize}px;
+    }
 
-    document.getElementById('priceIncrease').addEventListener('input', updatePrices);
+    function updateWordWrap() {
+        const wordWrap = document.getElementById('wordWrapToggle').checked;
+        const cells = document.querySelectorAll('#outputContainer td');
+        cells.forEach(cell => {
+            cell.style.wordBreak = wordWrap ? 'break-word' : 'normal';
+            cell.style.whiteSpace = wordWrap ? 'normal' : 'nowrap';
+        });
+    }
 
-    window.onload = function () {
+    // Display persisted data on page load
+    window.onload = function() {
         displayOutput();
     };
+
+    // Add event listeners for checkboxes and sliders
+    const checkboxes = document.querySelectorAll('input[type="checkbox"][id^="show"]');
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', displayOutput);
+    });
+
+    document.getElementById('fontSizeSlider').addEventListener('input', updateFontSize);
+    document.getElementById('wordWrapToggle').addEventListener('change', updateWordWrap);
 </script>
 
 </body>
