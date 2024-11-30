@@ -388,6 +388,39 @@
             checkbox.addEventListener('change', displayOutput);
         });
 
+        document.getElementById('priceIncrease').addEventListener('input', function () {
+            updatePrices();
+            displayOutput();
+        });
+        
+        function updatePrices() {
+            const priceIncrease = parseFloat(document.getElementById('priceIncrease').value) || 0;
+        
+            for (const packageType in data) {
+                data[packageType] = data[packageType].map(bundle => {
+                    // Extract original price from bundle
+                    const originalPrice = parseFloat(bundle.price.replace('GH¢', '').trim());
+                    // Recalculate price with new percentage
+                    const adjustedPrice = roundPrice(originalPrice / (1 + lastPriceIncrease / 100) * (1 + priceIncrease / 100));
+                    return {
+                        ...bundle,
+                        price: `GH¢ ${adjustedPrice.toFixed(2)}`
+                    };
+                });
+            }
+        
+            // Save the new prices back to localStorage
+            localStorage.setItem('data', JSON.stringify(data));
+        }
+        
+        // Track the last price increase to revert correctly
+        let lastPriceIncrease = parseFloat(document.getElementById('priceIncrease').value) || 0;
+        
+        document.getElementById('priceIncrease').addEventListener('change', function () {
+            lastPriceIncrease = parseFloat(document.getElementById('priceIncrease').value) || 0;
+        });
+
+
         document.getElementById('fontSizeSlider').addEventListener('input', updateFontSize);
         document.getElementById('wordWrapToggle').addEventListener('change', updateWordWrap);
     </script>
