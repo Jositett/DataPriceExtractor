@@ -152,13 +152,7 @@
         "Telecel": []
     };
 
-    const originalData = JSON.parse(localStorage.getItem('originalData')) || {
-        "MTN": [],
-        "AT Premium": [],
-        "AT Bigtime": [],
-        "AT Talktime": [],
-        "Telecel": []
-    };
+    const baselineData = JSON.parse(localStorage.getItem('baselineData')) || JSON.parse(JSON.stringify(data)); // Store original data for baseline
 
     const htmlData = JSON.parse(localStorage.getItem('htmlData')) || {
         "MTN": "",
@@ -167,8 +161,6 @@
         "AT Talktime": "",
         "Telecel": ""
     };
-
-    let lastPriceIncrease = parseFloat(document.getElementById('priceIncrease').value) || 0;
 
     function processHTML() {
         const htmlInput = document.getElementById('htmlInput');
@@ -187,7 +179,6 @@
         const doc = parser.parseFromString(htmlInput.value.trim(), 'text/html');
         const planContainers = doc.querySelectorAll('[id^="ContentPlaceHolder1_MyBundlesRepeater_MyPlanContainer_"]');
         const bundles = [];
-        const originalBundles = [];
 
         planContainers.forEach(container => {
             const dataUnitElements = container.querySelectorAll('.PlanName');
@@ -201,26 +192,31 @@
             const status = statusElement ? statusElement.textContent.trim() : '';
 
             if (includeOutOfStock || status.toLowerCase() !== 'out of stock') {
-                const fullDataUnit = packageType === 'AT Talktime' ? `${dataAmount} mins` : `${dataAmount}${dataUnit}`;
-                originalBundles.push({ dataUnit: fullDataUnit, price: price, status });
+                let adjustedPriceIncrease = priceIncrease;
+                const dataValue = parseFloat(dataAmount);
+                const isGB = dataUnit.toUpperCase() === 'GB';
+                const isTB = dataUnit.toUpperCase() === 'TB';
 
-                const adjustedPrice = roundPrice(price * (1 + priceIncrease / 100));
+                if (packageType !== 'AT Talktime' && ((isGB && dataValue > 30) || isTB)) {
+                    adjustedPriceIncrease = priceIncrease - (priceIncrease * 0.05);
+                }
+
+                const adjustedPrice = roundPrice(price * (1 + adjustedPriceIncrease / 100));
+                const fullDataUnit = packageType === 'AT Talktime' ? `${dataAmount} mins` : `${dataAmount}${dataUnit}`;
                 bundles.push({ dataUnit: fullDataUnit, price: `GH¢ ${adjustedPrice.toFixed(2)}`, status });
             }
         });
 
-        originalData[packageType] = originalBundles;
         data[packageType] = bundles;
-
+        baselineData[packageType] = JSON.parse(JSON.stringify(bundles)); // Save baseline data when processing
         disableOption(packageType);
 
         localStorage.setItem('data', JSON.stringify(data));
-        localStorage.setItem('originalData', JSON.stringify(originalData));
+        localStorage.setItem('baselineData', JSON.stringify(baselineData));
         localStorage.setItem('htmlData', JSON.stringify(htmlData));
 
         console.log("Processed data:", data);
-        console.log("Stored original data:", originalData);
-        console.log("Stored HTML data:", htmlData);
+        console.log("Baseline data:", baselineData);
 
         htmlInput.value = '';
         displayOutput();
@@ -243,10 +239,13 @@
     function updatePrices() {
         const priceIncrease = parseFloat(document.getElementById('priceIncrease').value) || 0;
 
-        for (const packageType in originalData) {
-            const originalBundles = originalData[packageType];
-            data[packageType] = originalBundles.map(bundle => {
-                const adjustedPrice = roundPrice(bundle.price * (1 + priceIncrease / 100));
+        for (const packageType in baselineData) {
+            data[packageType] = baselineData[packageType].map(bundle => {
+                const originalPrice = parseFloat(bundle.price.replace('GH¢', '').trim());
+                const adjustedPrice = priceIncrease === 0
+                    ? originalPrice // Reset to baseline
+                    : roundPrice(originalPrice * (1 + priceIncrease / 100));
+
                 return {
                     ...bundle,
                     price: `GH¢ ${adjustedPrice.toFixed(2)}`
@@ -255,7 +254,7 @@
         }
 
         localStorage.setItem('data', JSON.stringify(data));
-        lastPriceIncrease = priceIncrease;
+        displayOutput();
     }
 
     function displayOutput() {
@@ -329,10 +328,7 @@
         console.log("Output displayed");
     }
 
-    document.getElementById('priceIncrease').addEventListener('input', function () {
-        updatePrices();
-        displayOutput();
-    });
+    document.getElementById('priceIncrease').addEventListener('input', updatePrices);
 
     window.onload = function () {
         displayOutput();
