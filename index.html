@@ -1,0 +1,395 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML Data Extractor</title>
+    <script src="html2canvas.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #2c2c2c;
+            color: #ffffff;
+            padding: 20px;
+        }
+        .container {
+            max-width: 100vw;
+            margin: auto;
+        }
+        textarea, input[type="text"], input[type="number"] {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        button {
+            width: calc(100% - 20px);
+            padding: 10px;
+            font-size: 14px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        button:disabled {
+            background-color: #999;
+        }
+        #outputContainer {
+            width: 100%;
+            border: 1px solid #ccc;
+            background-color: #ffffff;
+            overflow: auto;
+            margin-top: 20px;
+            padding: 5px;
+            color: black;
+        }
+        .checkbox-container {
+            margin-bottom: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 5px;
+            table-layout: fixed;
+        }
+        th, td {
+            border: 2px solid black;
+            padding: 15px 10px;
+            text-align: center;
+            font-weight: bold;
+            overflow: hidden;
+            height: 50px;
+        }
+        .sub-header {
+            font-weight: normal;
+            font-size: 1.2em;
+            border-top: none;
+            border-bottom: 1px solid black;
+            color: black;
+            height: 35px;
+        }
+        .announcement {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #ffffff;
+            color: #000000;
+            border-radius: 5px;
+        }
+        .slider-container {
+            margin-bottom: 10px;
+        }
+        .slider-container label {
+            display: inline-block;
+            width: 150px;
+        }
+        .slider {
+            width: calc(100% - 160px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>HTML Data Extractor</h1>
+        <textarea id="htmlInput" placeholder="Paste your HTML snippet here" rows="10"></textarea>
+        <br />
+        <select id="packageType" style="display: block;">
+            <option value="" disabled selected>Select Package Type</option>
+            <option value="MTN">MTN</option>
+            <option value="AT Premium">AT Premium</option>
+            <option value="AT Bigtime">AT Bigtime</option>
+            <option value="AT Talktime">AT Talktime</option>
+            <option value="Telecel">Telecel</option>
+        </select>
+        <br />
+        <input type="number" id="priceIncrease" placeholder="Increase Price by (%)" step="0.1" value="0">
+
+        <div class="checkbox-container">
+            <input type="checkbox" id="includeOutOfStock" checked>
+            <label for="includeOutOfStock">Include Out of Stock Options</label>
+        </div>
+
+        <div class="checkbox-container">
+            <input type="checkbox" id="showMTN" checked>
+            <label for="showMTN">Show MTN</label>
+            <input type="checkbox" id="showATPremium" checked>
+            <label for="showATPremium">Show AT Premium</label>
+            <input type="checkbox" id="showATBigtime" checked>
+            <label for="showATBigtime">Show AT Bigtime</label>
+            <input type="checkbox" id="showATTalktime" checked>
+            <label for="showATTalktime">Show AT Talktime</label>
+            <input type="checkbox" id="showTelecel" checked>
+            <label for="showTelecel">Show Telecel</label>
+        </div>
+
+        <input type="text" id="whatsappNumber" placeholder="WhatsApp Number" value="0540511227">
+        <input type="text" id="accountName" placeholder="Account Name" value="Josiah Laryea Tetteh">
+        <input type="text" id="accountNumber" placeholder="Account Number" value="0540511227">
+
+        <div class="slider-container">
+            <label for="fontSizeSlider">Font Size:</label>
+            <input type="range" id="fontSizeSlider" class="slider" min="10" max="30" value="16">
+            <span id="fontSizeValue">16px</span>
+        </div>
+
+        <div class="checkbox-container">
+            <input type="checkbox" id="wordWrapToggle" checked>
+            <label for="wordWrapToggle">Enable Word Wrap</label>
+        </div>
+
+        <button id="processButton" onclick="processHTML()">Process HTML</button>
+        <button id="resetButton" onclick="resetForm()">Reset</button>
+        <button id="exportButton" onclick="exportAsImage()" style="display: none;">Export as Image</button>
+        <div id="outputContainer"></div>
+    </div>
+
+    <script>
+        const data = JSON.parse(localStorage.getItem('data')) || {
+            "MTN": [],
+            "AT Premium": [],
+            "AT Bigtime": [],
+            "AT Talktime": [],
+            "Telecel": []
+        };
+
+        const htmlData = JSON.parse(localStorage.getItem('htmlData')) || {
+            "MTN": "",
+            "AT Premium": "",
+            "AT Bigtime": "",
+            "AT Talktime": "",
+            "Telecel": ""
+        };
+
+        function processHTML() {
+            const htmlInput = document.getElementById('htmlInput');
+            const packageType = document.getElementById('packageType').value;
+            const priceIncrease = parseFloat(document.getElementById('priceIncrease').value) || 0;
+            const includeOutOfStock = document.getElementById('includeOutOfStock').checked;
+
+            if (!htmlInput.value.trim() || !packageType) {
+                alert('Please provide HTML input and select a package type.');
+                return;
+            }
+
+            htmlData[packageType] = htmlInput.value.trim();
+
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlInput.value.trim(), 'text/html');
+            const planContainers = doc.querySelectorAll('[id^="ContentPlaceHolder1_MyBundlesRepeater_MyPlanContainer_"]');
+            const bundles = [];
+
+            planContainers.forEach(container => {
+                const dataUnitElements = container.querySelectorAll('.PlanName');
+                const dataAmount = dataUnitElements[0] ? dataUnitElements[0].textContent.trim() : '';
+                const dataUnit = dataUnitElements[1] ? dataUnitElements[1].textContent.trim() : '';
+
+                const priceElement = container.querySelector('.PlanPrice');
+                const price = priceElement ? parseFloat(priceElement.textContent.replace('GH¢', '').trim()) : 0;
+
+                const statusElement = container.querySelector('.PlanStatus');
+                const status = statusElement ? statusElement.textContent.trim() : '';
+
+                if (includeOutOfStock || status.toLowerCase() !== 'out of stock') {
+                    let adjustedPriceIncrease = priceIncrease;
+                    const dataValue = parseFloat(dataAmount);
+                    const isGB = dataUnit.toUpperCase() === 'GB';
+                    const isTB = dataUnit.toUpperCase() === 'TB';
+
+                    if (packageType !== 'AT Talktime' && ((isGB && dataValue > 30) || isTB)) {
+                        adjustedPriceIncrease = priceIncrease - (priceIncrease * 0.05);
+                    }
+
+                    const adjustedPrice = roundPrice(price * (1 + adjustedPriceIncrease / 100));
+                    const fullDataUnit = packageType === 'AT Talktime' ? `${dataAmount} mins` : `${dataAmount}${dataUnit}`;
+                    bundles.push({ dataUnit: fullDataUnit, price: `GH¢ ${adjustedPrice.toFixed(2)}`, status });
+                }
+            });
+
+            data[packageType] = bundles;
+            disableOption(packageType);
+
+            localStorage.setItem('data', JSON.stringify(data));
+            localStorage.setItem('htmlData', JSON.stringify(htmlData));
+
+            console.log("Processed data:", data);
+            console.log("Stored HTML data:", htmlData);
+
+            htmlInput.value = '';
+            displayOutput();
+        }
+
+        function roundPrice(price) {
+            return Math.round(price * 2) / 2;
+        }
+
+        function disableOption(packageType) {
+            const select = document.getElementById('packageType');
+            const options = select.options;
+            for (let i = 0; i < options.length; i++) {
+                if (options[i].value === packageType) {
+                    options[i].disabled = true;
+                }
+            }
+        }
+
+        function displayOutput() {
+            const headers = ["MTN", "AT Premium", "AT Bigtime", "AT Talktime", "Telecel"];
+            const colors = {
+                "MTN": "linear-gradient(to right, goldenrod, darkgoldenrod)",
+                "AT Premium": "linear-gradient(to right, darkred, darkblue)",
+                "AT Bigtime": "linear-gradient(to right, darkred, darkblue)",
+                "AT Talktime": "linear-gradient(to right, darkblue, darkred)",
+                "Telecel": "linear-gradient(to right, darkred, red)"
+            };
+
+            const today = new Date();
+            const formattedDate = today.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+            const whatsappNumber = document.getElementById('whatsappNumber').value;
+            const accountName = document.getElementById('accountName').value;
+            const accountNumber = document.getElementById('accountNumber').value;
+
+            const announcement = `
+                <div class="announcement">
+                    📣 <strong>Today's Prices - ${formattedDate}</strong> 📣<br>
+                    Place your order now via WhatsApp only (no calls): ${whatsappNumber}<br>
+                    <br>
+                    <strong>Requirements:</strong><br>
+                    - Beneficiary Number<br>
+                    - Desired Package<br>
+                    - Momo Payment (Account Name: ${accountName}, Account Number: ${accountNumber})<br>
+                    <br>
+                    <strong>Processing time:</strong> 10 minutes to 7 hours (depending&nbsp;on&nbsp;network)<br>
+                    <br>
+                    <strong>Note:</strong><br>
+                    - Sims with debts may not be able to enjoy our services<br>
+                    - No Landline&nbsp;or&nbsp;Turbonet&nbsp;allowed<br>
+                    - Working Hours: 7am - 7pm (Weekdays, may vary)<br>
+                    <br>
+                    Order now and get your data package delivered quickly!
+                </div>
+            `;
+
+            const visibleHeaders = headers.filter(header => document.getElementById(`show${header.replace(/\s+/g, '')}`).checked);
+            const columnWidth = 100 / visibleHeaders.length;
+
+            let table = '<table>';
+            table += '<tr>' + visibleHeaders.map(header =>
+                `<th colspan="3" style="background: ${colors[header]}; color: white; width: ${columnWidth}%;">${header}</th>`
+            ).join('') + '</tr>';
+            table += '<tr>' + visibleHeaders.map(header =>
+                `<th class="sub-header" style="background: ${colors[header]};">Size/Time</th>
+                 <th class="sub-header" style="background: ${colors[header]};">Price</th>
+                 <th class="sub-header" style="background: ${colors[header]};">Status</th>`
+            ).join('') + '</tr>';
+
+            const maxRows = Math.max(...visibleHeaders.map(header => data[header].length));
+            for (let i = 0; i < maxRows; i++) {
+                table += '<tr>';
+                visibleHeaders.forEach(header => {
+                    if (i < data[header].length) {
+                        const bundle = data[header][i];
+                        table += `
+                            <td style="background: ${colors[header]};">${bundle.dataUnit}</td>
+                            <td style="background: ${colors[header]};">${bundle.price}</td>
+                            <td style="background: ${colors[header]};">${bundle.status}</td>
+                        `;
+                    } else {
+                        table += `<td style="background: ${colors[header]};"></td>
+                                  <td style="background: ${colors[header]};"></td>
+                                  <td style="background: ${colors[header]};"></td>`;
+                    }
+                });
+                table += '</tr>';
+            }
+            table += '</table>';
+
+            const outputContainer = document.getElementById('outputContainer');
+            outputContainer.innerHTML = announcement + table;
+            outputContainer.scrollIntoView({ behavior: 'smooth' });
+
+            document.getElementById('exportButton').style.display = 'block';
+
+            console.log("Output displayed");
+            updateFontSize();
+            updateWordWrap();
+        }
+
+        function resetForm() {
+            for (const key in data) {
+                data[key] = [];
+            }
+            for (const key in htmlData) {
+                htmlData[key] = "";
+            }
+            localStorage.removeItem('data');
+            localStorage.removeItem('htmlData');
+            document.getElementById('htmlInput').value = '';
+            document.getElementById('packageType').value = '';
+            document.getElementById('outputContainer').innerHTML = '';
+            document.getElementById('processButton').disabled = false;
+            document.getElementById('includeOutOfStock').checked = true;
+            document.getElementById('exportButton').style.display = 'none';
+
+            const select = document.getElementById('packageType');
+            const options = select.options;
+            for (let i = 0; i < options.length; i++) {
+                options[i].disabled = false;
+            }
+
+            const checkboxes = document.querySelectorAll('input[type="checkbox"][id^="show"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = true;
+            });
+        }
+
+        function exportAsImage() {
+            const outputContainer = document.getElementById('outputContainer');
+            html2canvas(outputContainer, { scale: 2, scrollX: 0, scrollY: 0, windowWidth: document.documentElement.scrollWidth, windowHeight: document.documentElement.scrollHeight }).then(canvas => {
+                canvas.toBlob(function(blob) {
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+
+                    const now = new Date();
+                    const formattedDate = now.toISOString().replace(/:/g, '-').split('.')[0];
+
+                    link.download = `data_output_${formattedDate}.png`;
+                    link.href = url;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                });
+            });
+        }
+
+        function updateFontSize() {
+            const fontSize = document.getElementById('fontSizeSlider').value;
+            document.getElementById('fontSizeValue').textContent = `${fontSize}px`;
+            document.getElementById('outputContainer').style.fontSize = `${fontSize}px`;
+        }
+
+        function updateWordWrap() {
+            const wordWrap = document.getElementById('wordWrapToggle').checked;
+            const cells = document.querySelectorAll('#outputContainer td');
+            cells.forEach(cell => {
+                cell.style.wordBreak = wordWrap ? 'break-word' : 'normal';
+                cell.style.whiteSpace = wordWrap ? 'normal' : 'nowrap';
+            });
+        }
+
+        // Display persisted data on page load
+        window.onload = function() {
+            displayOutput();
+        };
+
+        // Add event listeners for checkboxes and sliders
+        const checkboxes = document.querySelectorAll('input[type="checkbox"][id^="show"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', displayOutput);
+        });
+
+        document.getElementById('fontSizeSlider').addEventListener('input', updateFontSize);
+        document.getElementById('wordWrapToggle').addEventListener('change', updateWordWrap);
+    </script>
+</body>
+</html>
