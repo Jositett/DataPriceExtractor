@@ -93,13 +93,18 @@
             border-radius: 5px;
             color: black;
         }
+        select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>HTML Data Extractor</h1>
 
-        <!-- Price Adjustment Controls -->
         <div id="priceAdjustmentControls">
             <h3>Price Adjustment Controls</h3>
             <input type="number" id="priceIncrease" placeholder="Adjust Price by (%)" step="0.1" value="0">
@@ -109,7 +114,8 @@
 
         <textarea id="htmlInput" placeholder="Paste your HTML snippet here" rows="10"></textarea>
         <br />
-        <select id="packageType" style="display: block; margin-bottom: 10px; width: 100%; padding: 10px;">
+        
+        <select id="packageType">
             <option value="" disabled selected>Select Package Type</option>
             <option value="MTN">MTN</option>
             <option value="AT Premium">AT Premium</option>
@@ -158,42 +164,43 @@
     </div>
 
     <script>
-        // Initialize data structures
-        const data = JSON.parse(localStorage.getItem('data')) || {
-            "MTN": [],
-            "AT Premium": [],
-            "AT Bigtime": [],
-            "AT Talktime": [],
-            "Telecel": []
-        };
+    // Initialize data structures
+    const data = JSON.parse(localStorage.getItem('data')) || {
+        "MTN": [],
+        "AT Premium": [],
+        "AT Bigtime": [],
+        "AT Talktime": [],
+        "Telecel": []
+    };
 
-        const baselineData = JSON.parse(localStorage.getItem('baselineData')) || {
-            "MTN": [],
-            "AT Premium": [],
-            "AT Bigtime": [],
-            "AT Talktime": [],
-            "Telecel": []
-        };
+    const baselineData = JSON.parse(localStorage.getItem('baselineData')) || {
+        "MTN": [],
+        "AT Premium": [],
+        "AT Bigtime": [],
+        "AT Talktime": [],
+        "Telecel": []
+    };
 
-        const htmlData = JSON.parse(localStorage.getItem('htmlData')) || {
-            "MTN": "",
-            "AT Premium": "",
-            "AT Bigtime": "",
-            "AT Talktime": "",
-            "Telecel": ""
-        };
+    const htmlData = JSON.parse(localStorage.getItem('htmlData')) || {
+        "MTN": "",
+        "AT Premium": "",
+        "AT Bigtime": "",
+        "AT Talktime": "",
+        "Telecel": ""
+    };
 
-        function processHTML() {
-            const htmlInput = document.getElementById('htmlInput');
-            const packageType = document.getElementById('packageType').value;
-            const priceIncrease = parseFloat(document.getElementById('priceIncrease').value) || 0;
-            const includeOutOfStock = document.getElementById('includeOutOfStock').checked;
+    function processHTML() {
+        const htmlInput = document.getElementById('htmlInput');
+        const packageType = document.getElementById('packageType').value;
+        const priceIncrease = parseFloat(document.getElementById('priceIncrease').value) || 0;
+        const includeOutOfStock = document.getElementById('includeOutOfStock').checked;
 
-            if (!htmlInput.value.trim() || !packageType) {
-                alert('Please provide HTML input and select a package type.');
-                return;
-            }
+        if (!htmlInput.value.trim() || !packageType) {
+            alert('Please provide HTML input and select a package type.');
+            return;
+        }
 
+        try {
             htmlData[packageType] = htmlInput.value.trim();
 
             const parser = new DOMParser();
@@ -202,32 +209,36 @@
             const bundles = [];
 
             planContainers.forEach(container => {
-                const dataUnitElements = container.querySelectorAll('.PlanName');
-                const dataAmount = dataUnitElements[0] ? dataUnitElements[0].textContent.trim() : '';
-                const dataUnit = dataUnitElements[1] ? dataUnitElements[1].textContent.trim() : '';
+                try {
+                    const dataUnitElements = container.querySelectorAll('.PlanName');
+                    const dataAmount = dataUnitElements[0] ? dataUnitElements[0].textContent.trim() : '';
+                    const dataUnit = dataUnitElements[1] ? dataUnitElements[1].textContent.trim() : '';
 
-                const priceElement = container.querySelector('.PlanPrice');
-                const basePrice = priceElement ? parseFloat(priceElement.textContent.replace('GH¢', '').trim()) : 0;
+                    const priceElement = container.querySelector('.PlanPrice');
+                    const basePrice = priceElement ? parseFloat(priceElement.textContent.replace('GH¢', '').trim()) : 0;
 
-                const statusElement = container.querySelector('.PlanStatus');
-                const status = statusElement ? statusElement.textContent.trim() : '';
+                    const statusElement = container.querySelector('.PlanStatus');
+                    const status = statusElement ? statusElement.textContent.trim() : '';
 
-                if (includeOutOfStock || status.toLowerCase() !== 'out of stock') {
-                    const fullDataUnit = packageType === 'AT Talktime' ? `${dataAmount} mins` : `${dataAmount}${dataUnit}`;
-                    bundles.push({
-                        dataUnit: fullDataUnit,
-                        basePrice: basePrice,
-                        price: `GH¢ ${basePrice.toFixed(2)}`,
-                        status
-                    });
+                    if (includeOutOfStock || status.toLowerCase() !== 'out of stock') {
+                        const fullDataUnit = packageType === 'AT Talktime' ? 
+                            `${dataAmount} mins` : 
+                            `${dataAmount}${dataUnit}`;
+                        
+                        bundles.push({
+                            dataUnit: fullDataUnit,
+                            basePrice: basePrice,
+                            price: `GH¢ ${basePrice.toFixed(2)}`,
+                            status
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error processing individual bundle:', error);
                 }
             });
 
             // Store baseline data
             baselineData[packageType] = bundles;
-            localStorage.setItem('baselineData', JSON.stringify(baselineData));
-
-            // Initialize current data with baseline prices
             data[packageType] = JSON.parse(JSON.stringify(bundles));
 
             // Apply initial price adjustment if any
@@ -235,127 +246,251 @@
                 updatePrices(priceIncrease);
             }
 
-            disableOption(packageType);
+            localStorage.setItem('baselineData', JSON.stringify(baselineData));
             localStorage.setItem('data', JSON.stringify(data));
             localStorage.setItem('htmlData', JSON.stringify(htmlData));
 
+            disableOption(packageType);
             htmlInput.value = '';
             displayOutput();
+
+        } catch (error) {
+            console.error('Error processing HTML:', error);
+            alert('Error processing HTML. Please check the console for details.');
         }
+    }
 
-        function handlePriceChange() {
-            const priceIncrease = parseFloat(document.getElementById('priceIncrease').value) || 0;
-            updatePrices(priceIncrease);
+    function displayOutput() {
+        const headers = ["MTN", "AT Premium", "AT Bigtime", "AT Talktime", "Telecel"];
+        const colors = {
+            "MTN": "linear-gradient(to right, goldenrod, darkgoldenrod)",
+            "AT Premium": "linear-gradient(to right, darkred, darkblue)",
+            "AT Bigtime": "linear-gradient(to right, darkred, darkblue)",
+            "AT Talktime": "linear-gradient(to right, darkblue, darkred)",
+            "Telecel": "linear-gradient(to right, darkred, red)"
+        };
+
+        const today = new Date();
+        const formattedDate = today.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+        const whatsappNumber = document.getElementById('whatsappNumber').value;
+        const accountName = document.getElementById('accountName').value;
+        const accountNumber = document.getElementById('accountNumber').value;
+
+        const announcement = `
+            <div class="announcement">
+                📣 <strong>Today's Prices - ${formattedDate}</strong> 📣<br>
+                Place your order now via WhatsApp only (no calls): ${whatsappNumber}<br>
+                <br>
+                <strong>Requirements:</strong><br>
+                - Beneficiary Number<br>
+                - Desired Package<br>
+                - Momo Payment (Account Name: ${accountName}, Account Number: ${accountNumber})<br>
+                <br>
+                <strong>Processing time:</strong> 10 minutes to 7 hours (depending on network)<br>
+                <br>
+                <strong>Note:</strong><br>
+                - Sims with debts may not be able to enjoy our services<br>
+                - No Landline or Turbonet allowed<br>
+                - Working Hours: 7am - 7pm (Weekdays, may vary)<br>
+                <br>
+                Order now and get your data package delivered quickly!
+            </div>
+        `;
+
+        const visibleHeaders = headers.filter(header => 
+            document.getElementById(`show${header.replace(/\s+/g, '')}`).checked
+        );
+        const columnWidth = 100 / visibleHeaders.length;
+
+        let table = '<table>';
+        
+        // Header row
+        table += '<tr>' + visibleHeaders.map(header =>
+            `<th colspan="3" style="background: ${colors[header]}; color: white; width: ${columnWidth}%;">${header}</th>`
+        ).join('') + '</tr>';
+
+        // Sub-header row
+        table += '<tr>' + visibleHeaders.map(header =>
+            `<th class="sub-header" style="background: ${colors[header]};">Size/Time</th>
+             <th class="sub-header" style="background: ${colors[header]};">Price</th>
+             <th class="sub-header" style="background: ${colors[header]};">Status</th>`
+        ).join('') + '</tr>';
+
+        // Data rows
+        const maxRows = Math.max(...visibleHeaders.map(header => data[header].length));
+        for (let i = 0; i < maxRows; i++) {
+            table += '<tr>';
+            visibleHeaders.forEach(header => {
+                if (i < data[header].length) {
+                    const bundle = data[header][i];
+                    table += `
+                        <td style="background: ${colors[header]};">${bundle.dataUnit}</td>
+                        <td style="background: ${colors[header]};">${bundle.price}</td>
+                        <td style="background: ${colors[header]};">${bundle.status}</td>
+                    `;
+                } else {
+                    table += `
+                        <td style="background: ${colors[header]};"></td>
+                        <td style="background: ${colors[header]};"></td>
+                        <td style="background: ${colors[header]};"></td>
+                    `;
+                }
+            });
+            table += '</tr>';
         }
+        table += '</table>';
 
-        function updatePrices(percentageChange) {
-            for (const packageType in baselineData) {
-                if (baselineData[packageType].length > 0) {
-                    data[packageType] = baselineData[packageType].map(bundle => {
-                        const basePrice = bundle.basePrice;
-                        let adjustedPriceIncrease = percentageChange;
+        const outputContainer = document.getElementById('outputContainer');
+        outputContainer.innerHTML = announcement + table;
+        document.getElementById('exportButton').style.display = 'block';
 
-                        if (packageType !== 'AT Talktime') {
-                            const dataValue = parseFloat(bundle.dataUnit);
-                            const isGB = bundle.dataUnit.includes('GB');
-                            const isTB = bundle.dataUnit.includes('TB');
+        updateFontSize();
+        updateWordWrap();
+    }
 
-                            if ((isGB && dataValue > 30) || isTB) {
+    function handlePriceChange() {
+        const priceIncrease = parseFloat(document.getElementById('priceIncrease').value) || 0;
+        updatePrices(priceIncrease);
+    }
+
+    function updatePrices(percentageChange) {
+        for (const packageType in baselineData) {
+            if (baselineData[packageType].length > 0) {
+                data[packageType] = baselineData[packageType].map(bundle => {
+                    const basePrice = bundle.basePrice;
+                    let adjustedPriceIncrease = percentageChange;
+
+                    if (packageType !== 'AT Talktime') {
+                        const match = bundle.dataUnit.match(/(\d+(?:\.\d+)?)\s*(GB|TB)?/);
+                        if (match) {
+                            const dataValue = parseFloat(match[1]);
+                            const unit = match[2];
+                            if ((unit === 'GB' && dataValue > 30) || unit === 'TB') {
                                 adjustedPriceIncrease = percentageChange - (percentageChange * 0.05);
                             }
                         }
+                    }
 
-                        const adjustedPrice = roundPrice(basePrice * (1 + adjustedPriceIncrease / 100));
-                        return {
-                            ...bundle,
-                            price: `GH¢ ${adjustedPrice.toFixed(2)}`
-                        };
-                    });
-                }
-            }
-            localStorage.setItem('data', JSON.stringify(data));
-            displayOutput();
-        }
-
-        function resetToBaseline() {
-            document.getElementById('priceIncrease').value = 0;
-            for (const packageType in baselineData) {
-                data[packageType] = JSON.parse(JSON.stringify(baselineData[packageType]));
-            }
-            localStorage.setItem('data', JSON.stringify(data));
-            displayOutput();
-        }
-
-        function roundPrice(price) {
-            return Math.round(price * 2) / 2;
-        }
-
-        function disableOption(packageType) {
-            const select = document.getElementById('packageType');
-            const options = select.options;
-            for (let i = 0; i < options.length; i++) {
-                if (options[i].value === packageType) {
-                    options[i].disabled = true;
-                }
+                    const adjustedPrice = roundPrice(basePrice * (1 + adjustedPriceIncrease / 100));
+                    return {
+                        ...bundle,
+                        price: `GH¢ ${adjustedPrice.toFixed(2)}`
+                    };
+                });
             }
         }
+        
+        localStorage.setItem('data', JSON.stringify(data));
+        displayOutput();
+    }
 
-        function displayOutput() {
-            // ... (rest of your existing displayOutput function)
-            // No changes needed here unless you want to modify the display format
+    function resetToBaseline() {
+        document.getElementById('priceIncrease').value = 0;
+        for (const packageType in baselineData) {
+            data[packageType] = JSON.parse(JSON.stringify(baselineData[packageType]));
+        }
+        localStorage.setItem('data', JSON.stringify(data));
+        displayOutput();
+    }
+
+    function roundPrice(price) {
+        return Math.round(price * 2) / 2;
+    }
+
+    function disableOption(packageType) {
+        const select = document.getElementById('packageType');
+        const options = select.options;
+        for (let i = 0; i < options.length; i++) {
+            if (options[i].value === packageType) {
+                options[i].disabled = true;
+            }
+        }
+    }
+
+    function resetForm() {
+        for (const key in data) {
+            data[key] = [];
+            baselineData[key] = [];
+        }
+        for (const key in htmlData) {
+            htmlData[key] = "";
+        }
+        
+        localStorage.removeItem('data');
+        localStorage.removeItem('baselineData');
+        localStorage.removeItem('htmlData');
+        
+        document.getElementById('htmlInput').value = '';
+        document.getElementById('packageType').value = '';
+        document.getElementById('priceIncrease').value = '0';
+        document.getElementById('outputContainer').innerHTML = '';
+        document.getElementById('processButton').disabled = false;
+        document.getElementById('includeOutOfStock').checked = true;
+        document.getElementById('exportButton').style.display = 'none';
+
+        const select = document.getElementById('packageType');
+        const options = select.options;
+        for (let i = 0; i < options.length; i++) {
+            options[i].disabled = false;
         }
 
-        function resetForm() {
-            // Clear all data
-            for (const key in data) {
-                data[key] = [];
-                baselineData[key] = [];
-            }
-            for (const key in htmlData) {
-                htmlData[key] = "";
-            }
-            
-            // Clear localStorage
-            localStorage.removeItem('data');
-            localStorage.removeItem('baselineData');
-            localStorage.removeItem('htmlData');
-            
-            // Reset form elements
-            document.getElementById('htmlInput').value = '';
-            document.getElementById('packageType').value = '';
-            document.getElementById('priceIncrease').value = '0';
-            document.getElementById('outputContainer').innerHTML = '';
-            document.getElementById('processButton').disabled = false;
-            document.getElementById('includeOutOfStock').checked = true;
-            document.getElementById('exportButton').style.display = 'none';
+        const checkboxes = document.querySelectorAll('input[type="checkbox"][id^="show"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = true;
+        });
+    }
 
-            // Reset package type options
-            const select = document.getElementById('packageType');
-            const options = select.options;
-            for (let i = 0; i < options.length; i++) {
-                options[i].disabled = false;
-            }
+    function updateFontSize() {
+        const fontSize = document.getElementById('fontSizeSlider').value;
+        document.getElementById('fontSizeValue').textContent = `${fontSize}px`;
+        document.getElementById('outputContainer').style.fontSize = `${fontSize}px`;
+    }
 
-            // Reset checkboxes
-            const checkboxes = document.querySelectorAll('input[type="checkbox"][id^="show"]');
-            checkboxes.forEach(checkbox => {
-                checkbox.checked = true;
+    function updateWordWrap() {
+        const wordWrap = document.getElementById('wordWrapToggle').checked;
+        const cells = document.querySelectorAll('#outputContainer td');
+        cells.forEach(cell => {
+            cell.style.wordBreak = wordWrap ? 'break-word' : 'normal';
+            cell.style.whiteSpace = wordWrap ? 'normal' : 'nowrap';
+        });
+    }
+
+    function exportAsImage() {
+        const outputContainer = document.getElementById('outputContainer');
+        html2canvas(outputContainer, {
+            scale: 2,
+            scrollX: 0,
+            scrollY: 0,
+            windowWidth: document.documentElement.scrollWidth,
+            windowHeight: document.documentElement.scrollHeight
+        }).then(canvas => {
+            canvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                const now = new Date();
+                const formattedDate = now.toISOString().replace(/:/g, '-').split('.')[0];
+                link.download = `data_output_${formattedDate}.png`;
+                link.href = url;
+                link.click();
+                URL.revokeObjectURL(url);
             });
+        });
+    }
+
+    // Initialize page on load
+    window.onload = function() {
+        if (Object.values(data).some(arr => arr.length > 0)) {
+            displayOutput();
         }
-
-        // Initialize page on load
-        window.onload = function() {
-            if (Object.values(data).some(arr => arr.length > 0)) {
-                displayOutput();
-            }
-        };
-
-        // Event listeners
+        
+        // Add event listeners
         document.getElementById('fontSizeSlider').addEventListener('input', updateFontSize);
         document.getElementById('wordWrapToggle').addEventListener('change', updateWordWrap);
         document.querySelectorAll('input[type="checkbox"][id^="show"]').forEach(checkbox => {
             checkbox.addEventListener('change', displayOutput);
         });
-    </script>
+    };
+</script>
 </body>
 </html>
