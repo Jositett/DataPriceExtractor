@@ -190,76 +190,80 @@
     };
 
     function processHTML() {
-        const htmlInput = document.getElementById('htmlInput');
-        const packageType = document.getElementById('packageType').value;
-        const priceIncrease = parseFloat(document.getElementById('priceIncrease').value) || 0;
-        const includeOutOfStock = document.getElementById('includeOutOfStock').checked;
+    const htmlInput = document.getElementById('htmlInput');
+    const packageType = document.getElementById('packageType').value;
+    const priceIncrease = parseFloat(document.getElementById('priceIncrease').value) || 0;
+    const includeOutOfStock = document.getElementById('includeOutOfStock').checked;
 
-        if (!htmlInput.value.trim() || !packageType) {
-            alert('Please provide HTML input and select a package type.');
-            return;
-        }
-
-        try {
-            htmlData[packageType] = htmlInput.value.trim();
-
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(htmlInput.value.trim(), 'text/html');
-            const planContainers = doc.querySelectorAll('[id^="ContentPlaceHolder1_MyBundlesRepeater_MyPlanContainer_"]');
-            const bundles = [];
-
-            planContainers.forEach(container => {
-                try {
-                    const dataUnitElements = container.querySelectorAll('.PlanName');
-                    const dataAmount = dataUnitElements[0] ? dataUnitElements[0].textContent.trim() : '';
-                    const dataUnit = dataUnitElements[1] ? dataUnitElements[1].textContent.trim() : '';
-
-                    const priceElement = container.querySelector('.PlanPrice');
-                    const basePrice = priceElement ? parseFloat(priceElement.textContent.replace('GH¢', '').trim()) : 0;
-
-                    const statusElement = container.querySelector('.PlanStatus');
-                    const status = statusElement ? statusElement.textContent.trim() : '';
-
-                    if (includeOutOfStock || status.toLowerCase() !== 'out of stock') {
-                        const fullDataUnit = packageType === 'AT Talktime' ? 
-                            `${dataAmount} mins` : 
-                            `${dataAmount}${dataUnit}`;
-                        
-                        bundles.push({
-                            dataUnit: fullDataUnit,
-                            basePrice: basePrice,
-                            price: `GH¢ ${basePrice.toFixed(2)}`,
-                            status
-                        });
-                    }
-                } catch (error) {
-                    console.error('Error processing individual bundle:', error);
-                }
-            });
-
-            // Store baseline data
-            baselineData[packageType] = bundles;
-            data[packageType] = JSON.parse(JSON.stringify(bundles));
-
-            // Apply initial price adjustment if any
-            if (priceIncrease !== 0) {
-                updatePrices(priceIncrease);
-            }
-
-            localStorage.setItem('baselineData', JSON.stringify(baselineData));
-            localStorage.setItem('data', JSON.stringify(data));
-            localStorage.setItem('htmlData', JSON.stringify(htmlData));
-
-            disableOption(packageType);
-            htmlInput.value = '';
-            displayOutput();
-
-        } catch (error) {
-            console.error('Error processing HTML:', error);
-            alert('Error processing HTML. Please check the console for details.');
-        }
+    if (!htmlInput.value.trim() || !packageType) {
+        alert('Please provide HTML input and select a package type.');
+        return;
     }
 
+    try {
+        htmlData[packageType] = htmlInput.value.trim();
+
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlInput.value.trim(), 'text/html');
+        // Updated selector to match the provided HTML structure
+        const planContainers = doc.querySelectorAll('#MyPlanContainer');
+        const bundles = [];
+
+        planContainers.forEach(container => {
+            try {
+                // Extract data size and unit
+                const dataUnitElements = container.querySelectorAll('.PlanName');
+                const dataAmount = dataUnitElements[0] ? dataUnitElements[0].textContent.trim() : '';
+                const dataUnit = dataUnitElements[1] ? dataUnitElements[1].textContent.trim() : '';
+
+                // Extract price (updated selector)
+                const priceElement = container.querySelector('#DiscountedBundlePrice');
+                const basePrice = priceElement ? 
+                    parseFloat(priceElement.textContent.replace('GH¢', '').trim()) : 0;
+
+                // Extract status (updated selector)
+                const statusElement = container.querySelector('#PlanStatuss');
+                const status = statusElement ? statusElement.textContent.trim() : '';
+
+                if (includeOutOfStock || status.toLowerCase() === 'in stock') {
+                    const fullDataUnit = packageType === 'AT Talktime' ? 
+                        `${dataAmount} mins` : 
+                        `${dataAmount}${dataUnit}`;
+
+                    bundles.push({
+                        dataUnit: fullDataUnit,
+                        basePrice: basePrice,
+                        price: `GH¢ ${basePrice.toFixed(2)}`,
+                        status
+                    });
+                }
+            } catch (error) {
+                console.error('Error processing individual bundle:', error);
+            }
+        });
+
+        // Store baseline data
+        baselineData[packageType] = bundles;
+        data[packageType] = JSON.parse(JSON.stringify(bundles));
+
+        // Apply initial price adjustment if any
+        if (priceIncrease !== 0) {
+            updatePrices(priceIncrease);
+        }
+
+        localStorage.setItem('baselineData', JSON.stringify(baselineData));
+        localStorage.setItem('data', JSON.stringify(data));
+        localStorage.setItem('htmlData', JSON.stringify(htmlData));
+
+        disableOption(packageType);
+        htmlInput.value = '';
+        displayOutput();
+
+    } catch (error) {
+        console.error('Error processing HTML:', error);
+        alert('Error processing HTML. Please check the console for details.');
+    }
+}
     function displayOutput() {
         const headers = ["MTN", "AT Premium", "AT Bigtime", "AT Talktime", "Telecel"];
         const colors = {
