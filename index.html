@@ -205,8 +205,8 @@
 
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlInput.value.trim(), 'text/html');
-        // Updated selector to match the provided HTML structure
-        const planContainers = doc.querySelectorAll('#MyPlanContainer');
+        // Updated selector to get all plan containers
+        const planContainers = doc.querySelectorAll('.PlanContainer');
         const bundles = [];
 
         planContainers.forEach(container => {
@@ -217,12 +217,12 @@
                 const dataUnit = dataUnitElements[1] ? dataUnitElements[1].textContent.trim() : '';
 
                 // Extract price (updated selector)
-                const priceElement = container.querySelector('#DiscountedBundlePrice');
+                const priceElement = container.querySelector('.PlanPrice');
                 const basePrice = priceElement ? 
                     parseFloat(priceElement.textContent.replace('GH¢', '').trim()) : 0;
 
                 // Extract status (updated selector)
-                const statusElement = container.querySelector('#PlanStatuss');
+                const statusElement = container.querySelector('.PlanStatus');
                 const status = statusElement ? statusElement.textContent.trim() : '';
 
                 if (includeOutOfStock || status.toLowerCase() === 'in stock') {
